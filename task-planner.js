@@ -1,3 +1,5 @@
+const _ = require('lodash');
+
 const MinHeap = require("./util-min-heap")
 
 /**
@@ -20,13 +22,15 @@ class Node {
 }
 
 const mapActions = actions => {
-  return Object.keys(actions).map(key => {
-    const action = actions[key]
+    const result = []
 
-    action[key]=key
+    Object.keys(actions).forEach(key=>{
+        const action = actions[key]
+        action.key=key
+        result.push(action)
+    })
 
-    return action
-  });
+    return result
 };
 
 function createPlan(currentState, actions, validate) {
@@ -34,34 +38,9 @@ function createPlan(currentState, actions, validate) {
 
     const root = new Node(null,0,currentState,null)
 
-    const queue = new MinHeap(node => node.cost)
-
     const leaves = new MinHeap(node => node.cost)
 
-    queue.insert(root)
-
-    while (queue.getSize()) {
-        const current = queue.remove()
-
-        for (const action of actions) {
-            if (!action.condition(current.state)) {
-                continue
-            }
-
-            const nextState = action.effect(current.state)
-
-            const cost = current.cost + action.cost(current.state)
-
-            const node = new Node(current, cost, nextState, action)
-
-            if (validate(current.state, nextState)) {
-                leaves.insert(node)
-                continue
-            }
- 
-            createPlan(nextState, actions, validate)
-        }
-    }
+    dfs(root, leaves, actions, validate)
 
     if (leaves.getSize()) {
         const last = leaves.getMin()
@@ -70,18 +49,37 @@ function createPlan(currentState, actions, validate) {
     }
 }
 
+function dfs(current, leaves, actions, validate) {
+    for (const action of actions) {
+        if (!action.condition(current.state)) {
+            continue
+        }
+
+        const nextState = action.effect({...current.state})
+
+        const cost = current.cost + action.cost(current.state)
+
+        const node = new Node(current, cost, nextState, action)
+
+        if (validate(current.state, nextState)) {
+            leaves.insert(node)
+            continue
+        }
+
+        dfs(node, leaves, actions, validate)
+    }
+}
+
 function getPlanFromLeaf(last) {
     const plan = []
 
     while (last) {
         if (last.action) {
-            plan.unshift(last.action)
+            plan.unshift(last.action.key)
         }
 
         last = last.parent
     }
-
-    console.log(JSON.stringify(plan))
 
     return plan
 }
