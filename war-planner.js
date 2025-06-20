@@ -1,15 +1,15 @@
 const generatePlan = require("./task-planner")
 
 const ENERGY = "energy"
-const BARICADE = "baricade"
+const BARRICADE = "barricade"
 const SAFE_MODE = "safeMode"
-const roomKeys = [ENERGY, BARICADE, SAFE_MODE]
+const roomKeys = [ENERGY, BARRICADE, SAFE_MODE]
 
 /**
  * Generates a war plan using the task planner.
  * @param {number} tick - The current game tick.
  * @param {number} quads - Number of available quads.
- * @param {Array<Object>} rooms - Array of room objects with properties: name, energy, baricade, safeMode.
+ * @param {Array<Object>} rooms - Array of room objects with properties: name, energy, barricade, safeMode.
  */
 function generateWarPlan(tick, quads, rooms) {
   const initialState = {
@@ -36,7 +36,7 @@ function generateWarPlan(tick, quads, rooms) {
       condition: (state) =>
         state.quad_available >= 1 &&
         state[getRoomKey(roomName, SAFE_MODE)] <= state.tick &&
-        state[getRoomKey(roomName, BARICADE)] > 0,
+        state[getRoomKey(roomName, BARRICADE)] > 0,
       effect: (state) => {
         const damage = 300000
         const delta = { quad_available: -1 }
@@ -45,15 +45,15 @@ function generateWarPlan(tick, quads, rooms) {
         const energyDrain = Math.min(roomEnergy, Math.floor(damage / 100))
         delta[energyKey] = -energyDrain
 
-        const baricadeKey = getRoomKey(roomName, BARICADE)
-        const baricade = state[baricadeKey]
-        const baricadeDamage = Math.min(baricade, damage - energyDrain * 100)
-        delta[baricadeKey] = -baricadeDamage
+        const barricadeKey = getRoomKey(roomName, BARRICADE)
+        const barricade = state[barricadeKey]
+        const barricadeDamage = Math.min(barricade, damage - energyDrain * 100)
+        delta[barricadeKey] = -barricadeDamage
 
-        // Increase baricade for other rooms
+        // Increase barricade for other rooms
         for (const room of rooms) {
-          if (room.name === roomName || state[getRoomKey(room.name, BARICADE)] === 0) continue
-          delta[getRoomKey(room.name, BARICADE)] = 100000
+          if (room.name === roomName || state[getRoomKey(room.name, BARRICADE)] === 0) continue
+          delta[getRoomKey(room.name, BARRICADE)] = 100000
         }
 
         delta.tick = 500
@@ -70,8 +70,8 @@ function generateWarPlan(tick, quads, rooms) {
       effect: (state) => {
         const delta = { quad_available: 2, tick: 500 }
         for (const room of rooms) {
-          if (state[getRoomKey(room.name, BARICADE)] === 0) continue
-          delta[getRoomKey(room.name, BARICADE)] = 100000
+          if (state[getRoomKey(room.name, BARRICADE)] === 0) continue
+          delta[getRoomKey(room.name, BARRICADE)] = 100000
         }
         return delta
       },
@@ -85,11 +85,11 @@ function generateWarPlan(tick, quads, rooms) {
   })
 
   /**
-   * Checks if all baricades are destroyed.
+   * Checks if all barricades are destroyed.
    * @param {Object} state
    * @returns {boolean}
    */
-  const validate = (state) => rooms.every((room) => state[getRoomKey(room.name, BARICADE)] <= 0)
+  const validate = (state) => rooms.every((room) => state[getRoomKey(room.name, BARRICADE)] <= 0)
 
   // Output the generated plan
   console.log(generatePlan(initialState, actions, validate))

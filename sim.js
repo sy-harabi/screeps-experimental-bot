@@ -5,7 +5,7 @@ const roomA = {
   rcl: 6,
   terminal: true,
   energy: 7000,
-  baricade: 500000,
+  barricade: 500000,
   towers: 2,
 }
 
@@ -14,7 +14,7 @@ const roomB = {
   rcl: 7,
   terminal: true,
   energy: 10000,
-  baricade: 1000000,
+  barricade: 1000000,
   towers: 3,
 }
 
@@ -23,7 +23,7 @@ const roomC = {
   rcl: 3,
   terminal: false,
   energy: 2000,
-  baricade: 20000,
+  barricade: 20000,
   towers: 1,
   safeMode: 10000,
 }
