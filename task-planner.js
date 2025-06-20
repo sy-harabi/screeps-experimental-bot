@@ -1,96 +1,145 @@
-const _ = require('lodash');
-
 const MinHeap = require("./util-min-heap")
 
 /**
- * Represents a node in the planning search tree.
+ * Generates a plan based on the initial state, available actions, and a validation function.
+ * @param {Object} initialState - The initial state as a key-value object.
+ * @param {Array<Object>} actions - List of possible actions, each as a delta object.
+ * @param {Function} validate - Function to validate a state. Receives a state object, returns boolean.
+ * @param {Object} [options={}] - Optional configuration.
+ * @returns {void}
  */
-class Node {
+function generatePlan(initialState, actions, validate, options = {}) {
+  const keys = Object.keys(initialState).sort()
+  const indexMap = Object.fromEntries(keys.map((key, i) => [key, i]))
+
+  /**
+   * Represents a state in the planning process.
+   */
+  class State {
     /**
-     * Creates a new Node.
-     * @param {Node|null} [parent=null] - The parent node in the search tree.
-     * @param {number} [cost=0] - The cumulative cost to reach this node.
-     * @param {object} [state={}] - The state represented by this node.
-     * @param {object} [action=null] - The action taken to reach this node from the parent.
+     * Creates a State instance from a hash key string.
+     * @param {string} hashKey - The hash key representing the state.
+     * @returns {State}
      */
-    constructor(parent = null, cost = 0, state = {}, action = null) {
-        this.cost = cost
-        this.parent = parent
-        this.state = state
-        this.action = action
-    }
-}
-
-const mapActions = actions => {
-    const result = []
-
-    Object.keys(actions).forEach(key=>{
-        const action = actions[key]
-        action.key=key
-        result.push(action)
-    })
-
-    return result
-};
-
-function createPlan(currentState, actions, validate, maxIterate = 15) {
-    actions = mapActions(actions)
-
-    const root = new Node(null,0,currentState,null)
-
-    const leaves = new MinHeap(node => node.cost)
-
-    dfs(root, leaves, actions, validate, maxIterate,1)
-
-    if (leaves.getSize()) {
-        const last = leaves.getMin()
-
-        return getPlanFromLeaf(last)
+    static fromHashKey(hashKey) {
+      const array = hashKey.split("|").map(Number)
+      return new State(array)
     }
 
-    return 'Could not find a valid plan'
-}
-
-function dfs(current, leaves, actions, validate,maxIterate, iterate) {
-    if (iterate > maxIterate) {
-        return
+    /**
+     * Constructs a State.
+     * @param {Object|Array<number>} object - State as an object or array.
+     */
+    constructor(object) {
+      if (Array.isArray(object)) {
+        this.state = object
+      } else {
+        this.state = keys.map((key) => object[key])
+      }
     }
 
-    iterate ++ 
+    /**
+     * Checks if this state is equal to another state.
+     * @param {State} anotherState
+     * @returns {boolean}
+     */
+    isEqualTo(anotherState) {
+      return this.state.every((v, i) => v === anotherState.state[i])
+    }
+
+    /**
+     * Returns a string hash key for the state.
+     * @returns {string}
+     */
+    getHashKey() {
+      return this.state.join("|")
+    }
+
+    /**
+     * Applies a delta to the state and returns a new State.
+     * @param {Object} delta - Object with key-value changes.
+     * @returns {State}
+     */
+    apply(delta) {
+      const result = [...this.state]
+      for (const key in delta) {
+        const index = indexMap[key]
+        result[index] += delta[key]
+      }
+      return new State(result)
+    }
+
+    toObject() {
+      return Object.fromEntries(this.state.map((value, index) => [keys[index], value]))
+    }
+  }
+
+  actions = mapActions(actions)
+
+  const start = new State(initialState)
+  const dist = new Map()
+  const prev = new Map()
+  const visited = new Map()
+  const actionTaken = new Map()
+  const queue = new MinHeap((state) => dist.get(state.getHashKey()))
+
+  dist.set(start.getHashKey(), 0)
+  queue.insert(start)
+
+  while (queue.getSize() > 0) {
+    // Get the state with the lowest cost
+
+    const state = queue.remove()
+    const hash = state.getHashKey()
+
+    if (visited.get(hash)) continue
+
+    visited.set(hash, true)
+
+    const stateObject = state.toObject()
+
+    // Check if this state is valid (goal)
+    if (validate(stateObject)) {
+      // Reconstruct path
+      const plan = []
+      let currentHash = hash
+      while (actionTaken.has(currentHash)) {
+        plan.push(actionTaken.get(currentHash))
+        currentHash = prev.get(currentHash)
+      }
+      return plan.reverse()
+    }
 
     for (const action of actions) {
-        if (!action.condition(current.state)) {
-            continue
-        }
+      if (!action.condition(stateObject)) continue
 
-        const nextState = action.effect(_.cloneDeep(current.state))
+      const cost = action.cost(stateObject)
 
-        const cost = current.cost + action.cost(current.state)
+      const nextState = state.apply(action.effect(stateObject))
+      const nextHash = nextState.getHashKey()
 
-        const node = new Node(current, cost, nextState, action)
-
-        if (validate(current.state, nextState)) {
-            console.log(getPlanFromLeaf(node))
-            leaves.insert(node)
-            continue
-        }
-
-        dfs(node, leaves, actions, validate, maxIterate, iterate)
+      if (dist.get(nextHash) === undefined || dist.get(hash) + cost < dist.get(nextHash)) {
+        dist.set(nextHash, dist.get(hash) + cost)
+        prev.set(nextHash, hash)
+        actionTaken.set(nextHash, action.key)
+        queue.insert(nextState)
+      }
     }
+  }
+
+  return null
 }
 
-function getPlanFromLeaf(last) {
-    const plan = []
+function mapActions(actions) {
+  const result = []
 
-    while (last) {
-        if (last.action) {
-            plan.unshift(last.action.key)
-        }
+  Object.keys(actions).forEach((key) => {
+    const action = actions[key]
+    action.key = key
+    result.push(action)
+  })
 
-        last = last.parent
-    }
-
-    return plan
+  return result
 }
 
-module.exports = createPlan
+module.exports = generatePlan
