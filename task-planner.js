@@ -33,40 +33,49 @@ const mapActions = actions => {
     return result
 };
 
-function createPlan(currentState, actions, validate) {
+function createPlan(currentState, actions, validate, maxIterate = 15) {
     actions = mapActions(actions)
 
     const root = new Node(null,0,currentState,null)
 
     const leaves = new MinHeap(node => node.cost)
 
-    dfs(root, leaves, actions, validate)
+    dfs(root, leaves, actions, validate, maxIterate,1)
 
     if (leaves.getSize()) {
         const last = leaves.getMin()
 
         return getPlanFromLeaf(last)
     }
+
+    return 'Could not find a valid plan'
 }
 
-function dfs(current, leaves, actions, validate) {
+function dfs(current, leaves, actions, validate,maxIterate, iterate) {
+    if (iterate > maxIterate) {
+        return
+    }
+
+    iterate ++ 
+
     for (const action of actions) {
         if (!action.condition(current.state)) {
             continue
         }
 
-        const nextState = action.effect({...current.state})
+        const nextState = action.effect(_.cloneDeep(current.state))
 
         const cost = current.cost + action.cost(current.state)
 
         const node = new Node(current, cost, nextState, action)
 
         if (validate(current.state, nextState)) {
+            console.log(getPlanFromLeaf(node))
             leaves.insert(node)
             continue
         }
 
-        dfs(node, leaves, actions, validate)
+        dfs(node, leaves, actions, validate, maxIterate, iterate)
     }
 }
 

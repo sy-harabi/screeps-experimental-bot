@@ -34,7 +34,7 @@ const actions = {
 };
 
 const validate = (prevState, nextState) => {
-      return nextState.wood >= 6
+      return nextState.wood >8
 }
 
 console.log(createPlan(initialState,actions,validate))
